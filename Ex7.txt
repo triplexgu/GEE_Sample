@@ -1,0 +1,49 @@
+// Geoscripting 2023
+// Exercise 7
+// Google Earth Engine World Mosaic
+// Group Starter-able_panther_of_judgment
+// 18/01/2023
+// License url: https://earthengine.google.com/terms/ 
+// Submission link: https://code.earthengine.google.com/f6731040a3cc9915da091d8a2fe03e19
+
+// Ref1: https://www.youtube.com/watch?v=MSHrJtMeiDo
+// Load countries data
+var countries = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017');
+var Australia = countries.filter(ee.Filter.eq('country_na','Australia'));
+Map.addLayer(Australia,{'palette':'f03n20','opacity':1},'Australia');
+Map.centerObject(Australia,4)
+
+var Boundary = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+.filterDate('2017-01-01', '2018-06-30')
+.filterBounds(Australia);
+
+// Remove clouds
+// Ref2:https://developers.google.com/earth-engine/tutorials/tutorial_api_07
+function cloudless(image) {
+  // Add a cloud score band
+  var Cloud = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  // Create a mask of cloudy score and combine it with mask
+  var Mask = Cloud.lte(20);
+  // Apply the mask to mosaic map
+  return image.updateMask(Mask)
+}
+
+var CloudClear = Boundary.map(cloudless).mosaic();
+
+// Display comparison
+var visParams = {bands: ['B4', 'B3', 'B2'], max: 0.3};
+Map.addLayer(Boundary, visParams, 'Before');
+Map.addLayer(CloudClear, visParams, 'After cloud removation');
+
+// Add wildfire mosaic
+// Ref3:https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MCD64A1
+var dataset = ee.ImageCollection('MODIS/061/MCD64A1')
+                  .filter(ee.Filter.date('2017-01-01', '2018-06-30'))
+                  .filterBounds(Australia);
+var burnedArea = dataset.select('BurnDate');
+var burnedAreaVis = {
+  min: 30.0,
+  max: 341.0,
+  palette: ['4e0400', '951003', 'c61503', 'ff1901'],
+};
+Map.addLayer(burnedArea, burnedAreaVis, 'Burned Area');
